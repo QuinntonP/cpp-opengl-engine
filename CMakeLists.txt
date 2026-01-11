@@ -3,6 +3,7 @@ project(Renderer LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(my_app
     src/main.cpp
@@ -12,15 +13,40 @@ add_executable(my_app
 )
 
 target_include_directories(my_app PRIVATE
-    external/include
-    /opt/homebrew/include
+    ${CMAKE_SOURCE_DIR}/external/include
 )
 
-target_link_directories(my_app PRIVATE /opt/homebrew/lib)
-
-target_link_libraries(my_app PRIVATE glfw3
-    "-framework Cocoa"
-    "-framework OpenGL"
-    "-framework IOKit"
-    "-framework CoreVideo"
+# Make asset paths stable across OS + build dirs
+target_compile_definitions(my_app PRIVATE
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
 )
+
+# ---- OpenGL ----
+find_package(OpenGL REQUIRED)
+
+# ---- GLFW ----
+# Prefer GLFW's CMake package when available
+find_package(glfw3 QUIET)
+
+if (glfw3_FOUND)
+    target_link_libraries(my_app PRIVATE OpenGL::GL glfw)
+else()
+    # Fallback: use pkg-config (common on Linux distros)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GLFW REQUIRED glfw3)
+
+    target_include_directories(my_app PRIVATE ${GLFW_INCLUDE_DIRS})
+    target_link_libraries(my_app PRIVATE ${GLFW_LIBRARIES} OpenGL::GL)
+
+    # Some setups need this for link flags from pkg-config
+    target_link_options(my_app PRIVATE ${GLFW_LDFLAGS})
+endif()
+
+# ---- macOS frameworks (GLFW often needs these) ----
+if (APPLE)
+    target_link_libraries(my_app PRIVATE
+        "-framework Cocoa"
+        "-framework IOKit"
+        "-framework CoreVideo"
+    )
+endif()
