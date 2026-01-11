@@ -3,6 +3,7 @@
 #include <iostream>
 #include "../include/shader.h"
 #include "../include/stb_image.h"
+#include <string>
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -40,8 +41,6 @@ int main()
         return -1;
     }
 
-    Shader shader("shaders/vertex.glsl", "shaders/frag.glsl"); 
-
     float vertices[] = {
         // positions          // colors           // tex coords
         0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
@@ -56,7 +55,14 @@ int main()
 
     // load texture
     int width, height, nrChannels;
-    unsigned char *data = stbi_load("textures/container.jpg", &width, &height, &nrChannels, 0); 
+
+    std::string vertPath = std::string(PROJECT_ROOT) + "/shaders/vertex.glsl";
+    std::string fragPath = std::string(PROJECT_ROOT) + "/shaders/frag.glsl";
+    Shader shader(vertPath.c_str(), fragPath.c_str());
+
+    std::string texPath  = std::string(PROJECT_ROOT) + "/textures/container.jpg";
+    unsigned char *data  = stbi_load(texPath.c_str(), &width, &height, &nrChannels, 0);
+
 
     unsigned int texture;
     glGenTextures(1, &texture);
