@@ -1,0 +1,26 @@
+[
+{
+  "directory": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/build",
+  "command": "/usr/bin/clang++  -I\"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/include\" -I/opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/my_app.dir/src/main.cpp.o -c \"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/main.cpp\"",
+  "file": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/main.cpp",
+  "output": "CMakeFiles/my_app.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/build",
+  "command": "/usr/bin/clang++  -I\"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/include\" -I/opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/my_app.dir/src/shader.cpp.o -c \"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/shader.cpp\"",
+  "file": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/shader.cpp",
+  "output": "CMakeFiles/my_app.dir/src/shader.cpp.o"
+},
+{
+  "directory": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/build",
+  "command": "/usr/bin/clang++  -I\"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/include\" -I/opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/my_app.dir/src/stb_image.cpp.o -c \"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/stb_image.cpp\"",
+  "file": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/src/stb_image.cpp",
+  "output": "CMakeFiles/my_app.dir/src/stb_image.cpp.o"
+},
+{
+  "directory": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/build",
+  "command": "/usr/bin/clang  -I\"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/include\" -I/opt/homebrew/include -g -arch arm64 -o CMakeFiles/my_app.dir/external/src/glad.c.o -c \"/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/src/glad.c\"",
+  "file": "/Users/quinnton/Documents/Code Projects/Cpp/Renderer testing/external/src/glad.c",
+  "output": "CMakeFiles/my_app.dir/external/src/glad.c.o"
+}
+]
