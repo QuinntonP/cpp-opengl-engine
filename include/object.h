@@ -1,8 +1,20 @@
-#if !defined(OBJECT_H)
+#ifndef OBJECT_H
 #define OBJECT_H
 
-class Object{
-    Object(const char* vertexPath, int scale);
+#include <string>
+#include <vector>
+#include "../include/vertex.h"
+
+class Object {
+public:
+    Object(const std::string& vertexPath, float scale);
+    std::vector<Vertex> getVertices();
+
+private:
+    std::vector<Vertex> vertices;
+    float scale;
+    int loadObject(const std::string& vertexPath);
+    Vertex center;
 };
 
 #endif // OBJECT_H

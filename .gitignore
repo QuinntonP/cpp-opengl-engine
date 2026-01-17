@@ -1,2 +1,24 @@
-# CMake build directory
+# Build output
 build/
+cmake-build-*/
+out/
+
+# Compiled binaries
+*.o
+*.obj
+*.exe
+*.out
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log

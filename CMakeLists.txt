@@ -9,6 +9,7 @@ add_executable(my_app
     src/main.cpp
     src/shader.cpp
     src/stb_image.cpp
+    src/object.cpp
     external/src/glad.c
 )
 
