@@ -14,7 +14,9 @@ enum class CameraMovement {
     Forward,
     Backward,
     Left,
-    Right
+    Right,
+    UP,
+    DOWN
 };
 
 class Camera {
@@ -62,6 +64,8 @@ public:
         if (direction == CameraMovement::Backward) Position -= Front * velocity;
         if (direction == CameraMovement::Left)     Position -= Right * velocity;
         if (direction == CameraMovement::Right)    Position += Right * velocity;
+        if (direction == CameraMovement::UP)       Position += Up * velocity;
+        if (direction == CameraMovement::DOWN)     Position -= Up * velocity;
     }
 
     void ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch = true) {
