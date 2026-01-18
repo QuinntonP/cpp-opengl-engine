@@ -6,6 +6,7 @@
 
 #include "../include/shader.h"
 #include "../include/object.h"
+#include "../include/terrain.h"
 #include "../include/camera.h"
 
 #include <glm/glm.hpp>
@@ -206,8 +207,20 @@ int main() {
         return -1;
     }
 
-    Object obj("../resources/models/Ranger.stl", 0.1);
-    std::vector<Vertex> mesh = obj.getVertices();
+    // Position camera to view terrain
+    camera.Position = glm::vec3(50.0f, 30.0f, 50.0f);
+    camera.Pitch = -20.0f;
+
+    // Configure terrain generation
+    TerrainConfig terrainConfig;
+    terrainConfig.width = 100;
+    terrainConfig.depth = 100;
+    terrainConfig.heightScale = 15.0f;
+    terrainConfig.noiseFrequency = 0.03f;
+    terrainConfig.seed = 42;
+
+    Terrain terrain(terrainConfig);
+    std::vector<Vertex> mesh = terrain.getVertices();
 
     std::cout << "mesh vertices: " << mesh.size() << std::endl;
     if (mesh.empty()) {
