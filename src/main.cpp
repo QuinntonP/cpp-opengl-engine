@@ -13,6 +13,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../include/stb_image_write.h"
+#include <ctime>
+
 // ----------------------------
 // Globals / shared state
 // ----------------------------
@@ -74,9 +78,46 @@ static void updateDeltaTime() {
     lastFrame = currentFrame;
 }
 
+static void saveScreenshot(GLFWwindow* window) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // Allocate buffer for pixel data (RGB, 3 bytes per pixel)
+    std::vector<unsigned char> pixels(width * height * 3);
+
+    // Read pixels from framebuffer
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+    // Flip image vertically (OpenGL has origin at bottom-left)
+    std::vector<unsigned char> flipped(width * height * 3);
+    for (int y = 0; y < height; y++) {
+        memcpy(&flipped[y * width * 3], &pixels[(height - 1 - y) * width * 3], width * 3);
+    }
+
+    // Generate filename with timestamp
+    time_t now = time(nullptr);
+    char filename[64];
+    strftime(filename, sizeof(filename), "screenshot_%Y%m%d_%H%M%S.png", localtime(&now));
+
+    // Save as PNG
+    if (stbi_write_png(filename, width, height, 3, flipped.data(), width * 3)) {
+        std::cout << "Screenshot saved: " << filename << std::endl;
+    } else {
+        std::cerr << "Failed to save screenshot!" << std::endl;
+    }
+}
+
 static void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    // F12 for screenshot (with debounce)
+    static bool f9WasPressed = false;
+    bool f9IsPressed = (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS);
+    if (f9IsPressed && !f9WasPressed) {
+        saveScreenshot(window);
+    }
+    f9WasPressed = f9IsPressed;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(CameraMovement::Forward, deltaTime);
@@ -125,7 +166,7 @@ static bool initWindowAndGL(AppState& app) {
     }
 
     glEnable(GL_DEPTH_TEST);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     return true;
 }
@@ -141,9 +182,13 @@ static void createMeshBuffers(AppState& app, const std::vector<Vertex>& mesh) {
     glBindBuffer(GL_ARRAY_BUFFER, app.VBO);
     glBufferData(GL_ARRAY_BUFFER, mesh.size() * sizeof(Vertex), mesh.data(), GL_STATIC_DRAW);
 
-    // Assumes Vertex begins with 3 floats for position
+    // Position attribute (location = 0)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // Normal attribute (location = 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 }
@@ -211,13 +256,16 @@ int main() {
     camera.Position = glm::vec3(50.0f, 30.0f, 50.0f);
     camera.Pitch = -20.0f;
 
-    // Configure terrain generation
+    // Configure terrain generation - rolling hills with occasional peaks
     TerrainConfig terrainConfig;
     terrainConfig.width = 100;
     terrainConfig.depth = 100;
-    terrainConfig.heightScale = 15.0f;
-    terrainConfig.noiseFrequency = 0.03f;
-    terrainConfig.seed = 42;
+    terrainConfig.heightScale = 20.0f;      // Base height for hills
+    terrainConfig.noiseFrequency = 0.03f;   // Gentle rolling features
+    terrainConfig.noiseOctaves = 4;         // Smooth detail
+    terrainConfig.noisePersistence = 0.5f;  // Natural looking hills
+    terrainConfig.noiseLacunarity = 2.0f;   // Standard frequency steps
+    terrainConfig.seed = 2;
 
     Terrain terrain(terrainConfig);
     std::vector<Vertex> mesh = terrain.getVertices();

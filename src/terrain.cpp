@@ -37,8 +37,8 @@ void Terrain::generateHeightMap() {
             float worldX = x * config.gridSpacing;
             float worldZ = z * config.gridSpacing;
 
-            // Sample Perlin noise with fractal Brownian motion
-            float height = noise->fbm(
+            // Base rolling hills - smooth and gentle
+            float baseHeight = noise->fbm(
                 worldX * config.noiseFrequency,
                 worldZ * config.noiseFrequency,
                 config.noiseOctaves,
@@ -46,8 +46,30 @@ void Terrain::generateHeightMap() {
                 config.noiseLacunarity
             );
 
-            // Apply height scale and store in heightmap
-            heightMap[getIndex(x, z)] = height * config.heightScale;
+            // Random peak mask - creates occasional tall mountains
+            // Use different frequency to make peaks sparse
+            float peakMask = noise->noise(worldX * 0.01f, worldZ * 0.01f, 100.0f);
+
+            // Only create peaks where peakMask is above threshold
+            float peakHeight = 0.0f;
+            if (peakMask > 0.4f) {
+                // Sharp, tall peaks using higher frequency noise
+                float peakNoise = noise->fbm(
+                    worldX * config.noiseFrequency * 2.0f,
+                    worldZ * config.noiseFrequency * 2.0f,
+                    4,
+                    0.5f,
+                    2.0f
+                );
+                // Scale peaks by how strong the mask is
+                float peakStrength = (peakMask - 0.4f) / 0.6f; // Normalize to [0, 1]
+                peakHeight = peakNoise * peakStrength * config.heightScale * 2.0f;
+            }
+
+            // Combine: gentle hills as base + occasional dramatic peaks
+            float height = baseHeight * config.heightScale * 0.5f + peakHeight;
+
+            heightMap[getIndex(x, z)] = height;
         }
     }
 }
