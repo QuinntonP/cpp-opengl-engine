@@ -8,6 +8,7 @@
 #include "../include/object.h"
 #include "../include/terrain.h"
 #include "../include/camera.h"
+#include "../include/texture.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -16,6 +17,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../include/stb_image_write.h"
 #include <ctime>
+#include <random>
 
 // ----------------------------
 // Globals / shared state
@@ -25,14 +27,25 @@ Camera camera;
 static float deltaTime = 0.0f;
 static float lastFrame = 0.0f;
 
+// FPS counter
+static int frameCount = 0;
+static float fpsTimer = 0.0f;
+static float currentFPS = 0.0f;
+
 static bool firstMouse = true;
-static float lastX = 400.0f;
-static float lastY = 300.0f;
+static float lastX = 800;
+static float lastY = 800;
+
+// Toggle for PS1-style effects (lighting, fog, vertex snapping, color quantization)
+static bool enableEffects = true;  // Set to false for normal rendering
 
 struct Uniforms {
     GLint model = -1;
     GLint view = -1;
     GLint projection = -1;
+    GLint useTexture = -1;
+    GLint viewPos = -1;
+    GLint enableEffects = -1;
 };
 
 struct AppState {
@@ -41,10 +54,20 @@ struct AppState {
     Shader* shader = nullptr; // owned in main, pointer stored here
     Uniforms u;
 
-    GLuint VAO = 0;
-    GLuint VBO = 0;
+    // Terrain buffers
+    GLuint terrainVAO = 0;
+    GLuint terrainVBO = 0;
+    GLsizei terrainVertexCount = 0;
 
-    GLsizei vertexCount = 0;
+    // Trees buffers
+    GLuint treesVAO = 0;
+    GLuint treesVBO = 0;
+    GLsizei treesVertexCount = 0;
+
+    // Grass buffers
+    GLuint grassVAO = 0;
+    GLuint grassVBO = 0;
+    GLsizei grassVertexCount = 0;
 };
 
 // ----------------------------
@@ -72,10 +95,24 @@ static void mouse_callback(GLFWwindow* /*window*/, double xpos, double ypos) {
 // ----------------------------
 // Timing + Input
 // ----------------------------
-static void updateDeltaTime() {
+static void updateDeltaTime(GLFWwindow* /*window*/) {
     float currentFrame = (float)glfwGetTime();
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
+
+    // Update FPS counter
+    frameCount++;
+    fpsTimer += deltaTime;
+
+    // Update FPS display every 0.5 seconds
+    if (fpsTimer >= 0.5f) {
+        currentFPS = frameCount / fpsTimer;
+        frameCount = 0;
+        fpsTimer = 0.0f;
+
+        // Print FPS to console
+        std::cout << "FPS: " << (int)currentFPS << std::endl;
+    }
 }
 
 static void saveScreenshot(GLFWwindow* window) {
@@ -111,13 +148,23 @@ static void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    // F12 for screenshot (with debounce)
+    // F9 for screenshot (with debounce)
     static bool f9WasPressed = false;
     bool f9IsPressed = (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS);
     if (f9IsPressed && !f9WasPressed) {
         saveScreenshot(window);
     }
     f9WasPressed = f9IsPressed;
+
+    // E key to toggle effects (with debounce)
+    static bool eWasPressed = false;
+    bool eIsPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
+    if (eIsPressed && !eWasPressed) {
+        enableEffects = !enableEffects;
+        std::cout << "Effects " << (enableEffects ? "ENABLED" : "DISABLED")
+                  << " (PS1-style: " << (enableEffects ? "ON" : "OFF") << ")" << std::endl;
+    }
+    eWasPressed = eIsPressed;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(CameraMovement::Forward, deltaTime);
@@ -147,7 +194,7 @@ static bool initWindowAndGL(AppState& app) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    app.window = glfwCreateWindow(800, 600, "opengl", nullptr, nullptr);
+    app.window = glfwCreateWindow(1920, 1080, "opengl", nullptr, nullptr);
     if (!app.window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -171,15 +218,15 @@ static bool initWindowAndGL(AppState& app) {
     return true;
 }
 
-static void createMeshBuffers(AppState& app, const std::vector<Vertex>& mesh) {
-    app.vertexCount = (GLsizei)mesh.size();
+static void createMeshBuffers(GLuint& VAO, GLuint& VBO, GLsizei& vertexCount, const std::vector<Vertex>& mesh) {
+    vertexCount = (GLsizei)mesh.size();
 
-    glGenVertexArrays(1, &app.VAO);
-    glGenBuffers(1, &app.VBO);
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
-    glBindVertexArray(app.VAO);
+    glBindVertexArray(VAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, app.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, mesh.size() * sizeof(Vertex), mesh.data(), GL_STATIC_DRAW);
 
     // Position attribute (location = 0)
@@ -190,21 +237,28 @@ static void createMeshBuffers(AppState& app, const std::vector<Vertex>& mesh) {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    // Texture coordinate attribute (location = 2)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
     glBindVertexArray(0);
 }
 
 static void cacheUniformLocations(AppState& app) {
     // Cache once; calling glGetUniformLocation every frame is fine for learning,
     // but caching is cleaner and faster.
-    app.u.model      = glGetUniformLocation(app.shader->ID, "model");
-    app.u.view       = glGetUniformLocation(app.shader->ID, "view");
-    app.u.projection = glGetUniformLocation(app.shader->ID, "projection");
+    app.u.model         = glGetUniformLocation(app.shader->ID, "model");
+    app.u.view          = glGetUniformLocation(app.shader->ID, "view");
+    app.u.projection    = glGetUniformLocation(app.shader->ID, "projection");
+    app.u.useTexture    = glGetUniformLocation(app.shader->ID, "useTexture");
+    app.u.viewPos       = glGetUniformLocation(app.shader->ID, "viewPos");
+    app.u.enableEffects = glGetUniformLocation(app.shader->ID, "enableEffects");
 }
 
 // ----------------------------
 // Drawing
 // ----------------------------
-static void drawFrame(AppState& app) {
+static void drawFrame(AppState& app, Texture* treeTexture = nullptr, Texture* grassTexture = nullptr) {
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -228,17 +282,223 @@ static void drawFrame(AppState& app) {
     glUniformMatrix4fv(app.u.model, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(app.u.view, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(app.u.projection, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniform3fv(app.u.viewPos, 1, glm::value_ptr(camera.Position));
+    glUniform1i(app.u.enableEffects, enableEffects ? 1 : 0);
 
-    glBindVertexArray(app.VAO);
-    glDrawArrays(GL_TRIANGLES, 0, app.vertexCount);
+    // Draw terrain without texture
+    glUniform1i(app.u.useTexture, 0);
+    glBindVertexArray(app.terrainVAO);
+    glDrawArrays(GL_TRIANGLES, 0, app.terrainVertexCount);
+
+    // Draw trees with texture
+    if (treeTexture != nullptr) {
+        treeTexture->bind(0);
+        glUniform1i(app.u.useTexture, 1);
+        glBindVertexArray(app.treesVAO);
+        glDrawArrays(GL_TRIANGLES, 0, app.treesVertexCount);
+    }
+
+    // Draw grass with texture
+    if (grassTexture != nullptr) {
+        grassTexture->bind(0);
+        glUniform1i(app.u.useTexture, 1);
+        glBindVertexArray(app.grassVAO);
+        glDrawArrays(GL_TRIANGLES, 0, app.grassVertexCount);
+    }
+}
+
+// ----------------------------
+// Object Placement Helper
+// ----------------------------
+struct PlacedObject {
+    std::string modelPath;
+    float x, z;           // Position on terrain (X and Z coords)
+    float scale;
+    float yOffset;        // Additional height offset above terrain
+    bool placeAtLowestVertex; // If true, places model so lowest vertex sits on terrain
+    float rotX = 0.0f;    // Rotation around X axis in degrees
+    float rotY = 0.0f;    // Rotation around Y axis in degrees
+    float rotZ = 0.0f;    // Rotation around Z axis in degrees
+};
+
+static void addObjectsToMesh(
+    std::vector<Vertex>& mesh,
+    const Terrain& terrain,
+    const std::vector<PlacedObject>& objects
+) {
+    for (const auto& obj : objects) {
+        // Load the model with rotation
+        Object model(obj.modelPath, obj.scale, obj.rotX, obj.rotY, obj.rotZ);
+        std::vector<Vertex> modelVerts = model.getVertices();
+
+        if (modelVerts.empty()) {
+            std::cerr << "Warning: Model has no vertices: " << obj.modelPath << std::endl;
+            continue;
+        }
+
+        // Get terrain height at this position
+        float terrainHeight = terrain.getHeightAt(obj.x, obj.z);
+
+        // Calculate placement height
+        float placementHeight = terrainHeight + obj.yOffset;
+
+        if (obj.placeAtLowestVertex) {
+            // Find the lowest Y coordinate in the model
+            float lowestY = modelVerts[0].y;
+            for (const auto& vert : modelVerts) {
+                if (vert.y < lowestY) {
+                    lowestY = vert.y;
+                }
+            }
+            // Adjust placement so the lowest vertex sits on the terrain
+            placementHeight -= lowestY;
+        }
+
+        // Offset all vertices to position on terrain
+        for (auto& vert : modelVerts) {
+            vert.x += obj.x;
+            vert.y += placementHeight;
+            vert.z += obj.z;
+        }
+
+        // Add to combined mesh
+        mesh.insert(mesh.end(), modelVerts.begin(), modelVerts.end());
+
+        // std::cout << "Placed " << obj.modelPath << " at ("
+        //           << obj.x << ", " << placementHeight << ", " << obj.z
+        //           << ") - " << modelVerts.size() << " vertices"
+        //           << (obj.placeAtLowestVertex ? " [grounded]" : "") << std::endl;
+    }
+}
+
+// ----------------------------
+// Random Object Placement
+// ----------------------------
+struct RandomPlacementConfig {
+    std::string modelPath;
+    int count;                  // Number of objects to place
+    float scale;
+    float scaleVariation;       // Random scale variation (e.g., 0.2 = ±20%)
+    float yOffset;
+    bool placeAtLowestVertex;
+    float minSlope;             // Minimum terrain slope (0 = flat, 1 = steep)
+    float maxSlope;             // Maximum terrain slope
+    float minHeight;            // Minimum terrain height for placement
+    float maxHeight;            // Maximum terrain height for placement
+    float rotX = 0.0f;          // Rotation around X axis in degrees
+    float rotY = 0.0f;          // Rotation around Y axis in degrees
+    float rotZ = 0.0f;          // Rotation around Z axis in degrees
+    bool randomRotationY = false; // If true, randomly rotate each object around Y axis
+};
+
+static void addObjectsRandomly(
+    std::vector<Vertex>& mesh,
+    const Terrain& terrain,
+    const TerrainConfig& terrainConfig,
+    const RandomPlacementConfig& config,
+    unsigned int seed = 0
+) {
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<float> xDist(0.0f, terrainConfig.width * terrainConfig.gridSpacing);
+    std::uniform_real_distribution<float> zDist(0.0f, terrainConfig.depth * terrainConfig.gridSpacing);
+    std::uniform_real_distribution<float> scaleDist(1.0f - config.scaleVariation, 1.0f + config.scaleVariation);
+
+    int placed = 0;
+    int attempts = 0;
+    const int maxAttempts = config.count * 10; // Try up to 10x the desired count
+
+    while (placed < config.count && attempts < maxAttempts) {
+        attempts++;
+
+        // Random position
+        float x = xDist(rng);
+        float z = zDist(rng);
+
+        // Get terrain height
+        float terrainHeight = terrain.getHeightAt(x, z);
+
+        // Check height constraints
+        if (terrainHeight < config.minHeight || terrainHeight > config.maxHeight) {
+            continue;
+        }
+
+        // Calculate slope (check neighboring points)
+        float offset = 1.0f;
+        float h1 = terrain.getHeightAt(x + offset, z);
+        float h2 = terrain.getHeightAt(x - offset, z);
+        float h3 = terrain.getHeightAt(x, z + offset);
+        float h4 = terrain.getHeightAt(x, z - offset);
+
+        float slopeX = std::abs(h1 - h2) / (2.0f * offset);
+        float slopeZ = std::abs(h3 - h4) / (2.0f * offset);
+        float slope = std::sqrt(slopeX * slopeX + slopeZ * slopeZ);
+
+        // Check slope constraints
+        if (slope < config.minSlope || slope > config.maxSlope) {
+            continue;
+        }
+
+        // Random scale variation
+        float randomScale = config.scale * scaleDist(rng);
+
+        // Random Y rotation if enabled
+        float rotY = config.rotY;
+        if (config.randomRotationY) {
+            std::uniform_real_distribution<float> rotDist(0.0f, 360.0f);
+            rotY = rotDist(rng);
+        }
+
+        // Load and place object with rotation
+        Object model(config.modelPath, randomScale, config.rotX, rotY, config.rotZ);
+        std::vector<Vertex> modelVerts = model.getVertices();
+
+        if (modelVerts.empty()) {
+            continue;
+        }
+
+        // Calculate placement height
+        float placementHeight = terrainHeight + config.yOffset;
+
+        if (config.placeAtLowestVertex) {
+            float lowestY = modelVerts[0].y;
+            for (const auto& vert : modelVerts) {
+                if (vert.y < lowestY) {
+                    lowestY = vert.y;
+                }
+            }
+            placementHeight -= lowestY;
+        }
+
+        // Offset vertices
+        for (auto& vert : modelVerts) {
+            vert.x += x;
+            vert.y += placementHeight;
+            vert.z += z;
+        }
+
+        // Add to mesh
+        mesh.insert(mesh.end(), modelVerts.begin(), modelVerts.end());
+        placed++;
+    }
+
+    std::cout << "Randomly placed " << placed << "/" << config.count
+              << " " << config.modelPath << " objects (attempted " << attempts << " times)" << std::endl;
+
+    if (placed < config.count) {
+        std::cout << "  NOTE: Could not place all objects. Try relaxing slope/height constraints." << std::endl;
+    }
 }
 
 // ----------------------------
 // Cleanup
 // ----------------------------
 static void cleanup(AppState& app) {
-    if (app.VAO) glDeleteVertexArrays(1, &app.VAO);
-    if (app.VBO) glDeleteBuffers(1, &app.VBO);
+    if (app.terrainVAO) glDeleteVertexArrays(1, &app.terrainVAO);
+    if (app.terrainVBO) glDeleteBuffers(1, &app.terrainVBO);
+    if (app.treesVAO) glDeleteVertexArrays(1, &app.treesVAO);
+    if (app.treesVBO) glDeleteBuffers(1, &app.treesVBO);
+    if (app.grassVAO) glDeleteVertexArrays(1, &app.grassVAO);
+    if (app.grassVBO) glDeleteBuffers(1, &app.grassVBO);
     glfwTerminate();
 }
 
@@ -252,8 +512,8 @@ int main() {
         return -1;
     }
 
-    // Position camera to view terrain
-    camera.Position = glm::vec3(50.0f, 30.0f, 50.0f);
+    // Position camera to view terrain and model
+    camera.Position = glm::vec3(100.0f, 40.0f, 100.0f);
     camera.Pitch = -20.0f;
 
     // Configure terrain generation - rolling hills with occasional peaks
@@ -268,27 +528,143 @@ int main() {
     terrainConfig.seed = 2;
 
     Terrain terrain(terrainConfig);
-    std::vector<Vertex> mesh = terrain.getVertices();
+    std::vector<Vertex> terrainMesh = terrain.getVertices();
 
-    std::cout << "mesh vertices: " << mesh.size() << std::endl;
-    if (mesh.empty()) {
-        std::cerr << "Mesh is empty\n";
-        cleanup(app);
-        return -1;
-    }
+    std::cout << "Terrain vertices: " << terrainMesh.size() << std::endl;
+
+    // Create separate meshes for trees and grass
+    std::vector<Vertex> treesMesh;
+    std::vector<Vertex> grassMesh;
+
+    // Define all objects to place on the terrain
+    std::vector<PlacedObject> objectsToPlace = {
+        // {modelPath, x, z, scale, yOffset, placeAtLowestVertex}
+    };
+
+    // Place all objects on the terrain
+    addObjectsToMesh(treesMesh, terrain, objectsToPlace);
+
+    // Place trees on flat to moderate slopes at mid-to-high elevations
+    addObjectsRandomly(treesMesh, terrain, terrainConfig, {
+        std::string(PROJECT_ROOT) + "/resources/models/Tree.stl",
+        2000,            // count 
+        1.0f,        // base scale
+        0.3f,        // scale variation (±30%)
+        0.0f,        // yOffset
+        true,        // placeAtLowestVertex
+        0.0f,        // minSlope (flat)
+        4.0f,        // maxSlope (increased to allow steeper slopes)
+        0.0f,        // minHeight (allow all heights)
+        50.0f,       // maxHeight (increased to cover full terrain range)
+        -90.0f,      // rotX - rotate 90 degrees around X to make trees stand upright
+        0.0f,        // rotY
+        0.0f,        // rotZ
+        true         // randomRotationY - random rotation around Y for variety
+    }, 123);         // seed
+
+
+    // Place all 4 grass models into the grassMesh with different seeds for variety
+    addObjectsRandomly(grassMesh, terrain, terrainConfig, {
+        std::string(PROJECT_ROOT) + "/resources/models/grass1.stl",
+        1000,            // count
+        0.1f,        // base scale
+        0.3f,        // scale variation (±30%)
+        0.0f,        // yOffset
+        true,        // placeAtLowestVertex
+        0.0f,        // minSlope (flat)
+        40.0f,        // maxSlope (increased to allow steeper slopes)
+        0.0f,        // minHeight (allow all heightss)
+        50.0f,       // maxHeight (increased to cover full terrain range)
+        -90.0f,      // rotX - rotate 90 degrees around X to make grass stand upright
+        0.0f,        // rotY
+        0.0f,        // rotZ
+        true         // randomRotationY - random rotation around Y for variety
+    }, 124);         // seed
+
+    addObjectsRandomly(grassMesh, terrain, terrainConfig, {
+        std::string(PROJECT_ROOT) + "/resources/models/grass2.stl",
+        1000,            // count
+        0.1,        // base scale
+        0.3f,        // scale variation (±30%)
+        0.0f,        // yOffset
+        true,        // placeAtLowestVertex
+        0.0f,        // minSlope (flat)
+        40.0f,        // maxSlope (increased to allow steeper slopes)
+        0.0f,        // minHeight (allow all heights)
+        50.0f,       // maxHeight (increased to cover full terrain range)
+        -90.0f,      // rotX - rotate 90 degrees around X to make grass stand upright
+        0.0f,        // rotY
+        0.0f,        // rotZ
+        true         // randomRotationY - random rotation around Y for variety
+    }, 125);         // seed
+
+    addObjectsRandomly(grassMesh, terrain, terrainConfig, {
+        std::string(PROJECT_ROOT) + "/resources/models/grass3.stl",
+        1000,            // count
+        0.2f,        // base scale
+        0.3f,        // scale variation (±30%)
+        0.0f,        // yOffset
+        true,        // placeAtLowestVertex
+        0.0f,        // minSlope (flat)
+        40.0f,        // maxSlope (increased to allow steeper slopes)
+        0.0f,        // minHeight (allow all heights)
+        50.0f,       // maxHeight (increased to cover full terrain range)
+        -90.0f,      // rotX - rotate 90 degrees around X to make grass stand upright
+        0.0f,        // rotY
+        0.0f,        // rotZ
+        true         // randomRotationY - random rotation around Y for variety
+    }, 126);         // seed
+
+    addObjectsRandomly(grassMesh, terrain, terrainConfig, {
+        std::string(PROJECT_ROOT) + "/resources/models/grass4.stl",
+        1000,            // count
+        0.1f,        // base scale
+        0.3f,        // scale variation (±30%)
+        0.0f,        // yOffset
+        true,        // placeAtLowestVertex
+        0.0f,        // minSlope (flat)
+        40.0f,        // maxSlope (increased to allow steeper slopes)
+        0.0f,        // minHeight (allow all heights)
+        50.0f,       // maxHeight (increased to cover full terrain range)
+        -90.0f,      // rotX - rotate 90 degrees around X to make grass stand upright
+        0.0f,        // rotY
+        0.0f,        // rotZ
+        true         // randomRotationY - random rotation around Y for variety
+    }, 127);         // seed
+
+    std::cout << "Trees vertices: " << treesMesh.size() << std::endl;
+    std::cout << "Grass vertices: " << grassMesh.size() << std::endl;
+    std::cout << "Total vertices: " << (terrainMesh.size() + treesMesh.size() + grassMesh.size()) << std::endl;
 
     std::string vertPath = std::string(PROJECT_ROOT) + "/shaders/vertex.glsl";
     std::string fragPath = std::string(PROJECT_ROOT) + "/shaders/frag.glsl";
     Shader shader(vertPath.c_str(), fragPath.c_str());
     app.shader = &shader;
 
-    createMeshBuffers(app, mesh);
+    // Load textures
+    std::string treeTexturePath = std::string(PROJECT_ROOT) + "/resources/textures/Leavs_basecolor_.tga.png";
+    Texture treeTexture(treeTexturePath);
+
+    std::string grassTexturePath = std::string(PROJECT_ROOT) + "/resources/textures/Blades of Grass.png";
+    Texture grassTexture(grassTexturePath);
+
+    // Create separate buffers for terrain, trees, and grass
+    createMeshBuffers(app.terrainVAO, app.terrainVBO, app.terrainVertexCount, terrainMesh);
+    createMeshBuffers(app.treesVAO, app.treesVBO, app.treesVertexCount, treesMesh);
+    createMeshBuffers(app.grassVAO, app.grassVBO, app.grassVertexCount, grassMesh);
+
     cacheUniformLocations(app);
 
+    // Set texture uniform
+    app.shader->use();
+    glUniform1i(glGetUniformLocation(app.shader->ID, "texture1"), 0);
+
     while (!glfwWindowShouldClose(app.window)) {
-        updateDeltaTime();
+        updateDeltaTime(app.window);
         processInput(app.window);
-        drawFrame(app);
+
+        // Draw with tree and grass textures
+        drawFrame(app, &treeTexture, &grassTexture);
 
         glfwSwapBuffers(app.window);
         glfwPollEvents();

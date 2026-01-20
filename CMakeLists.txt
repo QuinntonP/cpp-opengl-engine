@@ -10,8 +10,10 @@ add_executable(my_app
     src/shader.cpp
     src/stb_image.cpp
     src/object.cpp
+    src/obj_loader.cpp
     src/terrain.cpp
     src/perlin_noise.cpp
+    src/texture.cpp
     external/src/glad.c
 )
 
