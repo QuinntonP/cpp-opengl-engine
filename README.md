@@ -33,7 +33,8 @@ A 3D game engine built with C++ and OpenGL, featuring procedural terrain generat
   - `F9` - Take screenshot
 
 ### Content Pipeline
-- **STL Model Loading** - Import 3D models in STL format
+- **Multi-format Model Loading** - Import 3D models in STL and OBJ formats
+- **Automatic UV Generation** - Spherical, cylindrical, and planar UV mapping for models without texture coordinates
 - **Multi-texture Support** - PNG/TGA texture loading
 - **Mesh Batching** - Optimized rendering with separate VAOs for terrain, trees, and grass
 
@@ -90,8 +91,8 @@ GameEngine/
 ├── src/                    # Source files
 │   ├── main.cpp           # Application entry point
 │   ├── shader.cpp         # Shader compilation and linking
-│   ├── object.cpp         # 3D object handling
-│   ├── obj_loader.cpp     # STL model loader
+│   ├── object.cpp         # 3D object handling (STL/OBJ loading)
+│   ├── obj_loader.cpp     # OBJ model loader
 │   ├── terrain.cpp        # Terrain generation
 │   ├── perlin_noise.cpp   # Noise generation
 │   ├── texture.cpp        # Texture loading and management
@@ -109,7 +110,7 @@ GameEngine/
 │   ├── vertex.glsl        # Vertex shader
 │   └── frag.glsl          # Fragment shader
 ├── resources/             # Assets
-│   ├── models/            # 3D models (.stl)
+│   ├── models/            # 3D models (.stl, .obj)
 │   └── textures/          # Texture images (.png, .tga)
 ├── external/              # Third-party libraries
 │   ├── include/           # GLAD headers
@@ -132,13 +133,22 @@ TerrainConfig terrainConfig = {
 
 ## Adding Custom Models
 
-1. Place your `.stl` model files in `resources/models/`
+### Supported Formats
+
+| Format | Extension | Features |
+|--------|-----------|----------|
+| **STL** | `.stl` | ASCII STL files, auto-generated spherical UVs |
+| **OBJ** | `.obj` | Wavefront OBJ with vertices, normals, and texture coordinates |
+
+### How to Add Models
+
+1. Place your `.stl` or `.obj` model files in `resources/models/`
 2. Place corresponding textures in `resources/textures/`
 3. Update the object placement code in `main.cpp`:
 
 ```cpp
 addObjectsRandomly(meshName, terrain, terrainConfig, {
-    std::string(PROJECT_ROOT) + "/resources/models/your_model.stl",
+    std::string(PROJECT_ROOT) + "/resources/models/your_model.obj",  // .stl or .obj
     1000,        // count
     1.0f,        // base scale
     0.3f,        // scale variation
@@ -154,6 +164,11 @@ addObjectsRandomly(meshName, terrain, terrainConfig, {
     true         // randomRotationY
 }, seed);
 ```
+
+### UV Mapping
+
+- **OBJ files**: Uses texture coordinates from the file (if present)
+- **STL files**: Automatically generates spherical UV mapping for texturing
 
 ## Technical Details
 
@@ -196,7 +211,6 @@ addObjectsRandomly(meshName, terrain, terrainConfig, {
 
 ## Known Limitations
 
-- Only supports STL model format
 - Limited to static object placement (generated at startup)
 - Single light source (sun)
 - No shadow rendering
@@ -205,7 +219,7 @@ addObjectsRandomly(meshName, terrain, terrainConfig, {
 
 - [ ] Add shadow mapping
 - [ ] Implement skybox rendering
-- [ ] Add support for OBJ/FBX model formats
+- [ ] Add support for FBX/glTF model formats
 - [ ] Dynamic object spawning/removal
 - [ ] Multiple light sources
 - [ ] Water rendering
