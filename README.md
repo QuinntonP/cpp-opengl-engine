@@ -237,7 +237,3 @@ This project is open source and available under the [MIT License](LICENSE).
 - **GLM** - Mathematics library
 - **stb_image** - Image loading library
 - **Perlin Noise** - Terrain generation algorithm
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
