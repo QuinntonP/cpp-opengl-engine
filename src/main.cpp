@@ -147,16 +147,6 @@ static void processInput(GLFWwindow* window) {
     }
     f9WasPressed = f9IsPressed;
 
-    // E key to toggle effects (with debounce)
-    static bool eWasPressed = false;
-    bool eIsPressed = (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
-    if (eIsPressed && !eWasPressed) {
-        enableEffects = !enableEffects;
-        std::cout << "Effects " << (enableEffects ? "ENABLED" : "DISABLED")
-                  << " (PS1-style: " << (enableEffects ? "ON" : "OFF") << ")" << std::endl;
-    }
-    eWasPressed = eIsPressed;
-
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(CameraMovement::Forward, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -236,8 +226,6 @@ static void createMeshBuffers(GLuint& VAO, GLuint& VBO, GLsizei& vertexCount, co
 }
 
 static void cacheUniformLocations(AppState& app) {
-    // Cache once; calling glGetUniformLocation every frame is fine for learning,
-    // but caching is cleaner and faster.
     app.u.model         = glGetUniformLocation(app.shader->ID, "model");
     app.u.view          = glGetUniformLocation(app.shader->ID, "view");
     app.u.projection    = glGetUniformLocation(app.shader->ID, "projection");
@@ -392,12 +380,7 @@ int main() {
 
     std::cout << "Terrain vertices: " << terrainMesh.size() << std::endl;
 
-    createMeshBuffers(
-        app.terrainVAO,
-        app.terrainVBO,
-        app.terrainVertexCount,
-        terrainMesh
-    );
+    createMeshBuffers(app.terrainVAO, app.terrainVBO, app.terrainVertexCount,terrainMesh);
 
     // Define all objects to place on the terrain
     std::vector<PlacedObject> objectsToPlace = {
@@ -419,7 +402,6 @@ int main() {
         updateDeltaTime(app.window);
         processInput(app.window);
 
-        // Draw with tree and grass textures
         drawFrame(app);
 
         glfwSwapBuffers(app.window);
