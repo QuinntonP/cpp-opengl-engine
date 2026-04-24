@@ -7,13 +7,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(my_app
     src/main.cpp
-    src/shader.cpp
-    src/stb_image.cpp
-    src/object.cpp
-    src/obj_loader.cpp
-    src/terrain.cpp
-    src/perlin_noise.cpp
-    src/texture.cpp
+    utils/shader.cpp
+    utils/stb_image.cpp
+    utils/object.cpp
+    utils/obj_loader.cpp
+    utils/terrain.cpp
+    utils/perlin_noise.cpp
+    utils/texture.cpp
+    utils/obj_placer.cpp
     external/src/glad.c
 )
 
