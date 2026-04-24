@@ -301,13 +301,16 @@ static void addObjectsToMesh(std::vector<Vertex>& mesh, const Terrain& terrain, 
 
     for (const auto& obj : objects) {
         // Load the model with rotation
-        std::vector<Vertex> modelVerts;
-        if (loadedObjects.find(obj.modelPath) == loadedObjects.end()){
-            Object model(obj.modelPath, obj.scale, obj.rotX, obj.rotY, obj.rotZ);
-            loadedObjects.emplace(obj.modelPath, model);
+        auto it = loadedObjects.find(obj.modelPath);
+
+        if (it == loadedObjects.end()) {
+            it = loadedObjects.emplace(
+                obj.modelPath,
+                Object(obj.modelPath, obj.scale, obj.rotX, obj.rotY, obj.rotZ)
+            ).first;
         }
 
-        modelVerts = loadedObjects.find(obj.modelPath)->second.getVertices();
+std::vector<Vertex> modelVerts = it->second.getVertices();
 
         if (modelVerts.empty()) {
             std::cerr << "Warning: Model has no vertices: " << obj.modelPath << std::endl;
