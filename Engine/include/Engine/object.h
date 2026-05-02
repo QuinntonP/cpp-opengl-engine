@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "../include/vertex.h"
+#include "vertex.h"
 
 class Object {
 public:

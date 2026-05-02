@@ -4,8 +4,8 @@
 #include <vector>
 #include <string>
 
-#include "../include/vertex.h"
-#include "../include/terrain.h"
+#include "vertex.h"
+#include "terrain.h"
 
 class ObjPlacer {
 public:

@@ -1,5 +1,5 @@
-#include "../include/texture.h"
-#include "../include/stb_image.h"
+#include "Engine/texture.h"
+#include "Engine/stb_image.h"
 #include <iostream>
 
 Texture::Texture(const std::string& filepath) : ID(0), width(0), height(0), channels(0) {
