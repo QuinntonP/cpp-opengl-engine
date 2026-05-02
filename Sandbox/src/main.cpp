@@ -5,19 +5,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../include/shader.h"
-#include "../include/object.h"
-#include "../include/terrain.h"
-#include "../include/camera.h"
-#include "../include/texture.h"
-#include "../include/obj_placer.h"
+#include <Engine/Engine.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../include/stb_image_write.h"
 #include <ctime>
 #include <random>
 
@@ -106,46 +100,10 @@ static void updateDeltaTime(GLFWwindow* /*window*/) {
     }
 }
 
-static void saveScreenshot(GLFWwindow* window) {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    // Allocate buffer for pixel data (RGB, 3 bytes per pixel)
-    std::vector<unsigned char> pixels(width * height * 3);
-
-    // Read pixels from framebuffer
-    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
-
-    // Flip image vertically (OpenGL has origin at bottom-left)
-    std::vector<unsigned char> flipped(width * height * 3);
-    for (int y = 0; y < height; y++) {
-        memcpy(&flipped[y * width * 3], &pixels[(height - 1 - y) * width * 3], width * 3);
-    }
-
-    // Generate filename with timestamp
-    time_t now = time(nullptr);
-    char filename[64];
-    strftime(filename, sizeof(filename), "screenshot_%Y%m%d_%H%M%S.png", localtime(&now));
-
-    // Save as PNG
-    if (stbi_write_png(filename, width, height, 3, flipped.data(), width * 3)) {
-        std::cout << "Screenshot saved: " << filename << std::endl;
-    } else {
-        std::cerr << "Failed to save screenshot!" << std::endl;
-    }
-}
 
 static void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-
-    // F9 for screenshot (with debounce)
-    static bool f9WasPressed = false;
-    bool f9IsPressed = (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS);
-    if (f9IsPressed && !f9WasPressed) {
-        saveScreenshot(window);
-    }
-    f9WasPressed = f9IsPressed;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(CameraMovement::Forward, deltaTime);

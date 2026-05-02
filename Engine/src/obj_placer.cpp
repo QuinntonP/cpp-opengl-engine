@@ -1,10 +1,10 @@
-#include "../include/obj_placer.h"
+#include "Engine/obj_placer.h"
 
 #include <random>
 #include <cmath>
 #include <iostream>
 
-#include "../include/object.h"
+#include "Engine/object.h"
 
 void ObjPlacer::addObjectsRandomly(
     std::vector<Vertex>& mesh,

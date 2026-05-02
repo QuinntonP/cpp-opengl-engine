@@ -1,4 +1,4 @@
-#include "../include/shader.h"
+#include <Engine/shader.h>
 
 static void checkCompile(unsigned int shader, const char* type)
 {

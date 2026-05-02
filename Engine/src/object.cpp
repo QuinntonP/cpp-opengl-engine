@@ -1,5 +1,5 @@
-#include "../include/object.h"
-#include "../include/obj_loader.h"
+#include "Engine/object.h"
+#include "Engine/obj_loader.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
